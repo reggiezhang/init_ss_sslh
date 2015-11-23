@@ -1,1 +1,1 @@
-# scripts
+Useful shell scripts
