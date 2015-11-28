@@ -8,7 +8,25 @@ fi
 
 if [ -z "$2" ]
 then
-    echo "Please specify password"
+    echo "Please specify password for shadowsocks"
+    exit 0
+fi
+
+if [ -z "$3" ]
+then
+    echo "Please specify PSK for IPSec VPN"
+    exit 0
+fi
+
+if [ -z "$4" ]
+then
+    echo "Please specify username for IPSec VPN"
+    exit 0
+fi
+
+if [ -z "$5" ]
+then
+    echo "Please specify password for IPSec VPN"
     exit 0
 fi
 
@@ -59,6 +77,85 @@ DAEMON_OPTS="--user sslh --listen $1:443 --ssh 127.0.0.1:22 --ssl 127.0.0.1:443 
 END
 
 sudo service sslh start
+
+sudo apt-get -y install strongswan strongswan-plugin-xauth-generic
+
+cat <<END sudo tee /etc/ipsec.secrets
+# This file holds shared secrets or RSA private keys for authentication.
+
+# RSA private key for this host, authenticating it to any other host
+# which knows the public part.  Suitable public keys, for ipsec.conf, DNS,
+# or configuration of other implementations, can be extracted conveniently
+# with "ipsec showhostkey".
+$1 %any : PSK "$3"
+
+$4 : XAUTH "$5"
+END
+
+cat <<END sudo tee /etc/ipsec.conf
+# ipsec.conf - strongSwan IPsec configuration file
+
+# basic configuration
+
+config setup
+        # strictcrlpolicy=yes
+        # uniqueids = no
+
+# Add connections here.
+
+# Sample VPN connections
+
+#conn sample-self-signed
+#      leftsubnet=10.1.0.0/16
+#      leftcert=selfCert.der
+#      leftsendcert=never
+#      right=192.168.0.2
+#      rightsubnet=10.2.0.0/16
+#      rightcert=peerCert.der
+#      auto=start
+
+#conn sample-with-ca-cert
+#      leftsubnet=10.1.0.0/16
+#      leftcert=myCert.pem
+#      right=192.168.0.2
+#      rightsubnet=10.2.0.0/16
+#      rightid="C=CH, O=Linux strongSwan CN=peer name"
+#      auto=start
+
+config setup
+    cachecrls=yes
+    uniqueids=never
+
+conn ios
+    keyexchange=ikev1
+    authby=xauthpsk
+    xauth=server
+    left=%defaultroute
+    leftsubnet=0.0.0.0/0
+    leftfirewall=yes
+    right=%any
+    rightsubnet=10.7.0.0/24
+    rightsourceip=10.7.0.2/24
+    rightdns=8.8.8.8,8.8.4.4
+    auto=add
+END
+
+sudo service strongswan restart
+
+cat <<END sudo tee -a /etc/sysctl.conf
+# VPN
+net.ipv4.ip_forward = 1
+END
+
+sudo sysctl -p
+
+cat <<END sudo tee -a /etc/rc.local
+# VPN NAT
+/sbin/iptables -t nat -A POSTROUTING -s 10.0.0.0/8 -o eth0 -j MASQUERADE
+exit 0
+END
+
+sudo sh /etc/rc.local
 
 
 
