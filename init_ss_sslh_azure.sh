@@ -80,7 +80,7 @@ sudo service sslh start
 
 sudo apt-get -y install strongswan strongswan-plugin-xauth-generic
 
-cat <<END sudo tee /etc/ipsec.secrets
+cat <<END | sudo tee /etc/ipsec.secrets
 # This file holds shared secrets or RSA private keys for authentication.
 
 # RSA private key for this host, authenticating it to any other host
@@ -92,7 +92,7 @@ $1 %any : PSK "$3"
 $4 : XAUTH "$5"
 END
 
-cat <<END sudo tee /etc/ipsec.conf
+cat <<END | sudo tee /etc/ipsec.conf
 # ipsec.conf - strongSwan IPsec configuration file
 
 # basic configuration
@@ -142,14 +142,14 @@ END
 
 sudo service strongswan restart
 
-cat <<END sudo tee -a /etc/sysctl.conf
+cat <<END | sudo tee -a /etc/sysctl.conf
 # VPN
 net.ipv4.ip_forward = 1
 END
 
 sudo sysctl -p
 
-cat <<END sudo tee -a /etc/rc.local
+cat <<END | sudo tee -a /etc/rc.local
 # VPN NAT
 /sbin/iptables -t nat -A POSTROUTING -s 10.0.0.0/8 -o eth0 -j MASQUERADE
 exit 0
